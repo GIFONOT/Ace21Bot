@@ -1,4 +1,4 @@
-import random
+'''import random
 from random import randint
 
 
@@ -45,4 +45,4 @@ while sumUser < 22:
             print("ты проебал)")
         break
 else:
-    print("ты проебал)")
+    print("ты проебал)")'''
