@@ -22,8 +22,64 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
 
-def reset():
-    return Card_deck.copy(), 0, 0
+def reset_card_deck():
+    return Card_deck.copy()
+
+
+async def reset_game_state(state: FSMContext):
+    Card_deck_buf = reset_card_deck()
+    await state.update_data(card_deck=Card_deck_buf, sumAi=0, sumUser=0)
+
+
+async def get_card(message: types.Message, Card_deck_buf, sumUser, state: FSMContext):
+    mast = random.randint(1, 4)
+    rnd = random.choice(Card_deck_buf[mast])
+    Card_deck_buf[mast].remove(rnd)
+    sumUser += rnd
+
+    await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
+
+    if sumUser == 21:
+        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+        await message.answer(f"Ты победил!")
+
+        await reset_game_state(state)
+
+    elif sumUser > 21:
+        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+        await message.answer(f"ты проебал)")
+
+        await reset_game_state(state)
+    else:
+        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+    print(len(Card_deck_buf[1]), len(Card_deck_buf[2]), len(Card_deck_buf[3]), len(Card_deck_buf[4]))
+
+
+async def end_game(message: types.Message, sumUser, state: FSMContext):
+    if random.randint(0, 100) > 51:
+        sumAi = sumUser + 1
+    else:
+        sumAi = random.randint(10, 21)
+
+    await message.answer(f"Твои карты: {sumUser}")
+    await message.answer(f"Мои карты: {sumAi}")
+
+    if sumUser > sumAi:
+        await message.answer(f"Ты победил!")
+    else:
+        await message.answer(f"ты проебал)")
+    await reset_game_state(state)
+
+
+async def start_game(message: types.Message, Card_deck_buf, sumUser, state):
+    mast = randint(1, 4)
+    rnd = random.choice(Card_deck_buf[mast])
+    Card_deck_buf[mast].remove(rnd)
+    sumUser += rnd
+
+    await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
+
+    await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
 
 
 class States:
@@ -42,17 +98,18 @@ async def set_commands(dp: Dispatcher):
                                  scope=BotCommandScopeDefault())
 
 
+# Старт бота
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message, state: FSMContext):
     await message.answer(f'Привет, {message.from_user.first_name},'
                          f''f' сыграем?',
                          reply_markup=main)
 
-    Card_deck_buf, SumUser, SumAi = reset()
-    await state.update_data(card_deck=Card_deck_buf, sumAi=SumAi, sumUser=SumUser)
+    await reset_game_state(state)
     await state.set_state(States.STARTED)
 
 
+# Команда выход
 @dp.message_handler(text='Выход', state=States.STARTED)
 async def exit_game(message: types.Message, state: FSMContext):
     await message.answer(f'Пока {message.from_user.first_name}',
@@ -60,6 +117,7 @@ async def exit_game(message: types.Message, state: FSMContext):
     await state.reset_state()
 
 
+# Обработка исключений
 @dp.message_handler()
 async def handle_other_commands(message: types.Message):
     await message.answer('Я реагирую только на команду /start.')
@@ -70,74 +128,30 @@ async def stic(message: types.Message):
     await message.answer(message.sticker.file_id)
 
 
+# Инициализация игры
 @dp.message_handler(text='Старт', state=States.STARTED)
 async def start_game(message: types.Message, state: FSMContext):
     data = await state.get_data()
     Card_deck_buf = data.get('card_deck')
     sumUser = data.get('sumUser')
-
-    mast = randint(1, 4)
-    rnd = random.choice(Card_deck_buf[mast])
-    Card_deck_buf[mast].remove(rnd)
-    sumUser += rnd
-
-    await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
-
-    await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+    await start_game(message, Card_deck_buf, sumUser, state)
 
 
-@dp.message_handler(text='Ещё', state=States.STARTED)
-async def start_game(message: types.Message, state: FSMContext):
+# Обработка кнопок (ещё, всё)
+@dp.message_handler(lambda message: message.text.lower() in ['ещё', 'всё'], state=States.STARTED)
+async def handle_game_actions(message: types.Message, state: FSMContext):
     data = await state.get_data()
     Card_deck_buf = data.get('card_deck')
     sumUser = data.get('sumUser')
 
-    mast = randint(1, 4)
-    rnd = random.choice(Card_deck_buf[mast])
-    Card_deck_buf[mast].remove(rnd)
-    sumUser += rnd
+    if message.text.lower() == 'ещё':
+        await get_card(message, Card_deck_buf, sumUser, state)
 
-    await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
-
-    if sumUser == 21:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
-        await message.answer(f"Ты победил!")
-
-        Card_deck_buf, SumUser, SumAi = reset()
-        await state.update_data(card_deck=Card_deck_buf, sumAi=SumAi, sumUser=SumUser)
-
-    elif sumUser > 21:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
-        await message.answer(f"ты проебал)")
-
-        Card_deck_buf, SumUser, SumAi = reset()
-        await state.update_data(card_deck=Card_deck_buf, sumAi=SumAi, sumUser=SumUser)
-    else:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
-    print(len(Card_deck_buf[1]), len(Card_deck_buf[2]), len(Card_deck_buf[3]), len(Card_deck_buf[4]))
+    elif message.text.lower() == 'всё':
+        await end_game(message, sumUser, state)
 
 
-@dp.message_handler(text='Всё', state=States.STARTED)
-async def start_game(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    sumUser = data.get('sumUser')
-
-    if randint(0, 100) > 51:
-        sumAi = sumUser + 1
-    else:
-        sumAi = randint(10, 21)
-
-    await message.answer(f"Твои карты: {sumUser}")
-    await message.answer(f"Мои карты: {sumAi}")
-
-    if sumUser > sumAi:
-        await message.answer(f"Ты победил!")
-    else:
-        await message.answer(f"ты проебал)")
-    Card_deck_buf, SumUser, SumAi = reset()
-    await state.update_data(card_deck=Card_deck_buf, sumAi=SumAi, sumUser=SumUser)
-
-
+# Обработка исключений
 @dp.message_handler(state=States.STARTED)
 async def errormessage(message: types.Message):
     await message.answer(f"Нет такой команды {message.from_user.first_name}")
