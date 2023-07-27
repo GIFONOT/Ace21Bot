@@ -40,18 +40,18 @@ async def get_card(message: types.Message, Card_deck_buf, sumUser, state: FSMCon
     await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
 
     if sumUser == 21:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+        await message.answer(f"Сумма твоих карт: {sumUser}", reply_markup=game)
         await message.answer(f"Ты победил!")
 
         await reset_game_state(state)
 
     elif sumUser > 21:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+        await message.answer(f"Сумма твоих карт: {sumUser}", reply_markup=game)
         await message.answer(f"ты проебал)")
 
         await reset_game_state(state)
     else:
-        await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+        await message.answer(f"Сумма твоих карт: {sumUser}\n{Masti[mast]}: {rnd}", reply_markup=game)
     print(len(Card_deck_buf[1]), len(Card_deck_buf[2]), len(Card_deck_buf[3]), len(Card_deck_buf[4]))
 
 
@@ -61,8 +61,8 @@ async def end_game(message: types.Message, sumUser, state: FSMContext):
     else:
         sumAi = random.randint(10, 21)
 
-    await message.answer(f"Твои карты: {sumUser}")
-    await message.answer(f"Мои карты: {sumAi}")
+    await message.answer(f"Сумма твоих карт: {sumUser}")
+    await message.answer(f"Сумма моих карт: {sumAi}")
 
     if sumUser > sumAi:
         await message.answer(f"Ты победил!")
@@ -71,7 +71,7 @@ async def end_game(message: types.Message, sumUser, state: FSMContext):
     await reset_game_state(state)
 
 
-async def start_game(message: types.Message, Card_deck_buf, sumUser, state):
+async def start_ace(message: types.Message, Card_deck_buf, sumUser, state):
     mast = randint(1, 4)
     rnd = random.choice(Card_deck_buf[mast])
     Card_deck_buf[mast].remove(rnd)
@@ -79,7 +79,7 @@ async def start_game(message: types.Message, Card_deck_buf, sumUser, state):
 
     await state.update_data(card_deck=Card_deck_buf, sumUser=sumUser)
 
-    await message.answer(f"Твои карты: {sumUser}", reply_markup=game)
+    await message.answer(f"Сумма твоих карт: {sumUser}\n{Masti[mast]}: {rnd}", reply_markup=game)
 
 
 class States:
@@ -134,7 +134,7 @@ async def start_game(message: types.Message, state: FSMContext):
     data = await state.get_data()
     Card_deck_buf = data.get('card_deck')
     sumUser = data.get('sumUser')
-    await start_game(message, Card_deck_buf, sumUser, state)
+    await start_ace(message, Card_deck_buf, sumUser, state)
 
 
 # Обработка кнопок (ещё, всё)
